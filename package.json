@@ -1,0 +1,60 @@
+{
+  "name": "padel-score-engine",
+  "version": "0.0.0",
+  "description": "Zero-dependency padel/tennis scoring engine — Star Point mode (FIP 2026), golden point, advantage, tie-break, undo, serve tracking",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format . --write",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "prepack": "npm run build",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "@changesets/cli": "^2.29.8",
+    "@biomejs/biome": "^1.9.0"
+  },
+  "keywords": [
+    "padel",
+    "tennis",
+    "scoring",
+    "scoreboard",
+    "score-engine",
+    "golden-point",
+    "star-point"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhuravlev-biz/padel-score-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zhuravlev-biz/padel-score-engine/issues"
+  },
+  "homepage": "https://github.com/zhuravlev-biz/padel-score-engine#readme",
+  "author": "zhuravlev-biz",
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": false
+}

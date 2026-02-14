@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.DS_Store
+
+# Agentic AI instruction files
+AGENTS.md
+.github/copilot-instructions.md
+.cursor/
+.cursorignore
+.cursorindexingignore
+.cursorrules
+.copilot-instructions.md
+.amp/
+.amprules
+.windsurf/
+.windsurfrules
+.cline/
+.clinerules
+.aider*
+.roo/
+.roorules
+.claude
+.claudeignore
