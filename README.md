@@ -38,6 +38,10 @@ This caps the maximum number of points in any deuce game, improving player welfa
 
 > **Note:** Star Point applies only to regular games. Tie-breaks and super tie-breaks are unaffected and continue to use standard 2-point-lead rules.
 
+## Rules
+
+See [RULES.md](RULES.md) for the full scoring rules implemented by this engine, including links to the official [FIP Rules of Padel (2026)](https://www.padelfip.com/wp-content/uploads/2025/12/FIP_Rules-of-Padel-1.pdf).
+
 ## Install
 
 ```bash
