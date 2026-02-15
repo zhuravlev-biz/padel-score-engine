@@ -48,72 +48,184 @@ See [RULES.md](RULES.md) for the full scoring rules implemented by this engine, 
 npm install padel-score-engine
 ```
 
-## Usage (planned API)
-
-> **Note:** The engine is under active development. The API below shows the target design.
+## Quick Start
 
 ```ts
 import { createMatch, scorePoint, undoLastPoint } from 'padel-score-engine';
 
-// Classic padel — golden point
+// Create a match (golden point is the default padel mode)
 const match = createMatch({
   sets: 3,
   scoringMode: 'goldenPoint',
   superTieBreak: true,
 });
 
-// FIP 2026 — star point
-const match2026 = createMatch({
-  sets: 3,
-  scoringMode: 'starPoint',
-  superTieBreak: true,
-});
+// Score points — each call returns a new immutable state
+let state = scorePoint(match, 'A');
+console.log(state.score.A.points); // '15'
+console.log(state.announce);       // 'Fifteen — Love'
 
-const next = scorePoint(match, 'teamA');
-// next.score.teamA.points → '15'
+state = scorePoint(state, 'A');
+console.log(state.score.A.points); // '30'
 
-const prev = undoLastPoint(next);
+// Undo the last point
+const previous = undoLastPoint(state);
+console.log(previous.score.A.points); // '15'
 ```
 
-## Development Plan — Star Point Implementation
+## Examples
 
-### Type changes
+### Golden Point (default padel)
 
-1. Extend `ScoringMode` to `'goldenPoint' | 'advantage' | 'starPoint'`.
-2. Add an optional `GameDeuceState` to `MatchState` tracking `failedAdvantageResets` (0 | 1 | 2).
-3. Stage is derived — no explicit stage enum needed:
-   - `failedAdvantageResets < 2` → normal advantage behaviour
-   - `failedAdvantageResets === 2` → next deuce point is sudden death
+At 40-40 the next point wins the game — no advantage.
 
-### Scoring logic
+```ts
+const match = createMatch({ sets: 3, scoringMode: 'goldenPoint', superTieBreak: true });
 
-- Route by `phase` first: tie-break/super tie-break → tie-break scorer (star point does not apply).
-- In regular game scoring at deuce:
-  - `goldenPoint` → next point wins immediately.
-  - `advantage` → award AD; if AD lost, return to deuce (infinite).
-  - `starPoint` → award AD; if AD lost, increment `failedAdvantageResets`. At 2 failed resets + deuce, next point wins immediately.
-- `winGame()` must reset `failedAdvantageResets` to 0.
+// Score to 40-40
+let s = match;
+for (const team of ['A', 'A', 'A', 'B', 'B', 'B'] as const) {
+  s = scorePoint(s, team);
+}
+console.log(s.score.A.points, s.score.B.points); // '40' '40'
+console.log(s.announce); // 'Deuce'
 
-### Tests to write
+// Next point decides the game
+s = scorePoint(s, 'B');
+console.log(s.score.B.games); // 1
+console.log(s.announce);      // 'Game B'
+```
 
-| # | Scenario |
-| --- | --- |
-| 1 | Win before deuce — 4 straight points |
-| 2 | Advantage converts on first attempt |
-| 3 | Star Point triggers after exactly 2 failed advantages |
-| 4 | After `failed=2`, no AD is awarded — next point at deuce wins |
-| 5 | Counter increments only on AD→deuce transition, not on gaining AD |
-| 6 | Tie-break ignores star point mode entirely |
-| 7 | Undo correctly reverts `failedAdvantageResets` |
+### Star Point (FIP 2026)
 
-### Implementation order
+Up to two advantage attempts; if both are lost, the next deuce point is sudden-death.
 
-1. Update `ScoringMode` type + add `GameDeuceState` to `MatchState`
-2. Implement regular game scoring with star point logic
-3. Ensure tie-break path bypasses star point
-4. Write tests (vitest)
-5. Update undo/history to include `gameDeuceState`
-6. Export updates + changelog entry
+```ts
+const match = createMatch({ sets: 3, scoringMode: 'starPoint', superTieBreak: true });
+
+// Score to 40-40
+let s = match;
+for (const team of ['A', 'A', 'A', 'B', 'B', 'B'] as const) {
+  s = scorePoint(s, team);
+}
+
+// 1st advantage attempt — A gets AD, then B breaks it back to deuce
+s = scorePoint(s, 'A'); // AD A
+s = scorePoint(s, 'B'); // Deuce (failedAdvantageResets → 1)
+
+// 2nd advantage attempt — B gets AD, then A breaks it back to deuce
+s = scorePoint(s, 'B'); // AD B
+s = scorePoint(s, 'A'); // Deuce (failedAdvantageResets → 2)
+
+// Star Point — next point at deuce wins immediately (no AD awarded)
+s = scorePoint(s, 'A');
+console.log(s.score.A.games); // 1
+console.log(s.announce);      // 'Game A'
+```
+
+### Advantage Mode (tennis-style)
+
+Traditional advantage/deuce that can repeat indefinitely.
+
+```ts
+const match = createMatch({ sets: 3, scoringMode: 'advantage', superTieBreak: true });
+
+let s = match;
+for (const team of ['A', 'A', 'A', 'B', 'B', 'B'] as const) {
+  s = scorePoint(s, team);
+}
+
+s = scorePoint(s, 'A'); // Advantage A
+console.log(s.score.A.points); // 'AD'
+
+s = scorePoint(s, 'B'); // Back to deuce
+console.log(s.announce); // 'Deuce'
+
+// Can repeat indefinitely...
+s = scorePoint(s, 'B'); // Advantage B
+s = scorePoint(s, 'B'); // Game B
+console.log(s.score.B.games); // 1
+```
+
+### Custom Team Names
+
+```ts
+const match = createMatch({
+  sets: 3,
+  scoringMode: 'goldenPoint',
+  superTieBreak: true,
+  teamNames: { A: 'Lebron & Galan', B: 'Coello & Tapia' },
+});
+
+let s = scorePoint(match, 'A');
+console.log(s.announce); // 'Fifteen — Love'
+
+// Win a game
+for (let i = 0; i < 3; i++) s = scorePoint(s, 'A');
+console.log(s.announce); // 'Game Lebron & Galan'
+```
+
+### Undo / History
+
+Every `scorePoint` call stores the previous state in `history`, enabling unlimited undo.
+
+```ts
+const match = createMatch({ sets: 3, scoringMode: 'goldenPoint', superTieBreak: true });
+
+const s1 = scorePoint(match, 'A');  // 15-0
+const s2 = scorePoint(s1, 'B');     // 15-15
+const s3 = scorePoint(s2, 'A');     // 30-15
+
+// Undo back through history
+const back1 = undoLastPoint(s3);    // → 15-15
+const back2 = undoLastPoint(back1); // → 15-0
+console.log(back2.score.A.points, back2.score.B.points); // '15' '0'
+```
+
+### Match State
+
+The `MatchState` object gives you everything you need to render a scoreboard:
+
+```ts
+const match = createMatch({ sets: 3, scoringMode: 'goldenPoint', superTieBreak: true });
+let s = scorePoint(match, 'A');
+
+s.score.A.points;   // '15'       — current game points
+s.score.A.games;     // 0          — games in current set
+s.score.A.sets;      // 0          — sets won
+s.score.A.setGames;  // [0]        — games won per set (array)
+s.phase;             // 'inProgress' | 'tieBreak' | 'superTieBreak' | 'finished'
+s.serving;           // 'A'        — which team is serving
+s.winner;            // null       — set when phase is 'finished'
+s.announce;          // 'Fifteen — Love' — human-readable announcement
+```
+
+## API
+
+### `createMatch(config: MatchConfig): MatchState`
+
+Creates a new match with the given configuration.
+
+| Config field | Type | Description |
+|---|---|---|
+| `sets` | `3 \| 5` | Best of 3 or 5 sets |
+| `scoringMode` | `'goldenPoint' \| 'advantage' \| 'starPoint'` | Deuce resolution mode |
+| `superTieBreak` | `boolean` | Use 10-point super tie-break in final set |
+| `teamNames` | `{ A: string; B: string }` | Optional display names |
+
+### `scorePoint(state: MatchState, team: Team): MatchState`
+
+Scores a point for the given team. Returns a new `MatchState` (never mutates). Throws if the match is already finished.
+
+### `undoLastPoint(state: MatchState): MatchState`
+
+Returns the previous state from history. Throws if there is no history.
+
+### Types
+
+All types are exported: `Team`, `ScoringMode`, `GamePoint`, `MatchConfig`, `TeamScore`, `Score`, `MatchPhase`, `TieBreakState`, `GameDeuceState`, `MatchState`.
+
+`Team` is `'A' | 'B'`.
 
 ## License
 

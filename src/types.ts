@@ -1,6 +1,8 @@
-export type Team = "teamA" | "teamB";
+export const TEAM = Object.freeze({ A: "A", B: "B" } as const);
 
-export type ScoringMode = "goldenPoint" | "advantage";
+export type Team = (typeof TEAM)[keyof typeof TEAM];
+
+export type ScoringMode = "goldenPoint" | "advantage" | "starPoint";
 
 export type GamePoint = "0" | "15" | "30" | "40" | "AD";
 
@@ -8,7 +10,7 @@ export interface MatchConfig {
   sets: 3 | 5;
   scoringMode: ScoringMode;
   superTieBreak: boolean;
-  teamNames?: { teamA: string; teamB: string };
+  teamNames?: { A: string; B: string };
 }
 
 export interface TeamScore {
@@ -19,16 +21,21 @@ export interface TeamScore {
 }
 
 export interface Score {
-  teamA: TeamScore;
-  teamB: TeamScore;
+  A: TeamScore;
+  B: TeamScore;
 }
 
 export type MatchPhase = "inProgress" | "tieBreak" | "superTieBreak" | "finished";
 
 export interface TieBreakState {
-  teamA: number;
-  teamB: number;
+  A: number;
+  B: number;
   target: number; // 7 for tie-break, 10 for super tie-break
+  initialServer: Team;
+}
+
+export interface GameDeuceState {
+  failedAdvantageResets: 0 | 1 | 2;
 }
 
 export interface MatchState {
@@ -37,6 +44,7 @@ export interface MatchState {
   phase: MatchPhase;
   serving: Team;
   tieBreak: TieBreakState | null;
+  gameDeuceState: GameDeuceState | undefined;
   winner: Team | null;
   announce: string | null;
   history: MatchState[];
