@@ -1,5 +1,5 @@
 {
-  "name": "padel-score-engine",
+  "name": "@zhuravlev-biz/padel-score-engine",
   "version": "1.0.0",
   "description": "Zero-dependency padel/tennis scoring engine — Star Point mode (FIP 2026), golden point, advantage, tie-break, undo, serve tracking",
   "license": "MIT",
