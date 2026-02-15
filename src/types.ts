@@ -11,6 +11,7 @@ export interface MatchConfig {
   scoringMode: ScoringMode;
   superTieBreak: boolean;
   teamNames?: { A: string; B: string };
+  firstServer?: Team;
 }
 
 export interface TeamScore {

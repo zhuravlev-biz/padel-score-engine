@@ -14,6 +14,9 @@ Zero-dependency, pure TypeScript padel/tennis scoring engine.
 - Undo with snapshot-based history
 - Serve rotation tracking
 - Announcement string generation ("Fifteen — Love")
+- `formatAnnouncement` helper with optional serving info
+- Serving side indicator (right/left court)
+- Configurable first server
 - Immutable state transitions
 
 ## Scoring Modes
@@ -51,7 +54,7 @@ npm install padel-score-engine
 ## Quick Start
 
 ```ts
-import { createMatch, scorePoint, undoLastPoint } from 'padel-score-engine';
+import { createMatch, scorePoint, undoLastPoint, formatAnnouncement, getServingSide } from 'padel-score-engine';
 
 // Create a match (golden point is the default padel mode)
 const match = createMatch({
@@ -64,6 +67,9 @@ const match = createMatch({
 let state = scorePoint(match, 'A');
 console.log(state.score.A.points); // '15'
 console.log(state.announce);       // 'Fifteen — Love'
+console.log(formatAnnouncement(state, { includeServing: true }));
+// 'Fifteen — Love (Team A serving)'
+console.log(getServingSide(state));  // 'left'
 
 state = scorePoint(state, 'A');
 console.log(state.score.A.points); // '30'
@@ -165,6 +171,54 @@ for (let i = 0; i < 3; i++) s = scorePoint(s, 'A');
 console.log(s.announce); // 'Game Lebron & Galan'
 ```
 
+### First Server
+
+```ts
+const match = createMatch({
+  sets: 3,
+  scoringMode: 'goldenPoint',
+  superTieBreak: true,
+  firstServer: 'B',
+});
+
+console.log(match.serving); // 'B'
+```
+
+### Announcements with Serving Info
+
+```ts
+import { createMatch, scorePoint, formatAnnouncement } from 'padel-score-engine';
+
+const match = createMatch({
+  sets: 3,
+  scoringMode: 'advantage',
+  superTieBreak: true,
+  teamNames: { A: 'Lebron & Galan', B: 'Coello & Tapia' },
+});
+
+let s = scorePoint(match, 'A');
+console.log(formatAnnouncement(s)); // 'Fifteen — Love'
+console.log(formatAnnouncement(s, { includeServing: true }));
+// 'Fifteen — Love (Lebron & Galan serving)'
+```
+
+### Serving Side
+
+Shows which court side the server should serve from — useful for beginners.
+
+```ts
+import { createMatch, scorePoint, getServingSide } from 'padel-score-engine';
+
+const match = createMatch({ sets: 3, scoringMode: 'goldenPoint', superTieBreak: true });
+console.log(getServingSide(match)); // 'right' (first point always from right)
+
+let s = scorePoint(match, 'A');     // 15-0
+console.log(getServingSide(s));     // 'left'
+
+s = scorePoint(s, 'B');             // 15-15
+console.log(getServingSide(s));     // 'right'
+```
+
 ### Undo / History
 
 Every `scorePoint` call stores the previous state in `history`, enabling unlimited undo.
@@ -212,6 +266,7 @@ Creates a new match with the given configuration.
 | `scoringMode` | `'goldenPoint' \| 'advantage' \| 'starPoint'` | Deuce resolution mode |
 | `superTieBreak` | `boolean` | Use 10-point super tie-break in final set |
 | `teamNames` | `{ A: string; B: string }` | Optional display names |
+| `firstServer` | `Team` | Optional. Which team serves first (defaults to `'A'`) |
 
 ### `scorePoint(state: MatchState, team: Team): MatchState`
 
@@ -221,9 +276,17 @@ Scores a point for the given team. Returns a new `MatchState` (never mutates). T
 
 Returns the previous state from history. Throws if there is no history.
 
+### `formatAnnouncement(state: MatchState, options?: { includeServing?: boolean }): string | null`
+
+Returns the announcement string from state. When `includeServing` is `true`, appends `"(X serving)"` using team names if configured.
+
+### `getServingSide(state: MatchState): ServingSide`
+
+Returns `'right'` or `'left'` indicating which court side the server should serve from. Derived from the current score: even total points → right (deuce side), odd → left (advantage side). Works for regular games and tie-breaks.
+
 ### Types
 
-All types are exported: `Team`, `ScoringMode`, `GamePoint`, `MatchConfig`, `TeamScore`, `Score`, `MatchPhase`, `TieBreakState`, `GameDeuceState`, `MatchState`.
+All types are exported: `Team`, `ScoringMode`, `GamePoint`, `MatchConfig`, `TeamScore`, `Score`, `MatchPhase`, `TieBreakState`, `GameDeuceState`, `MatchState`, `ServingSide`.
 
 `Team` is `'A' | 'B'`.
 

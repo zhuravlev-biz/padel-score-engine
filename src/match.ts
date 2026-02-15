@@ -8,7 +8,7 @@ export function createMatch(config: MatchConfig): MatchState {
       B: { points: "0", games: 0, sets: 0, setGames: [0] },
     },
     phase: "inProgress",
-    serving: "A",
+    serving: config.firstServer ?? "A",
     tieBreak: null,
     gameDeuceState: config.scoringMode === "starPoint" ? { failedAdvantageResets: 0 } : undefined,
     winner: null,

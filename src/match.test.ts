@@ -51,4 +51,19 @@ describe("createMatch", () => {
 
     expect(match.config.teamNames).toEqual({ A: "Alpha", B: "Beta" });
   });
+
+  it("defaults first server to A", () => {
+    const match = createMatch({ sets: 3, scoringMode: "goldenPoint", superTieBreak: false });
+    expect(match.serving).toBe("A");
+  });
+
+  it("respects firstServer option", () => {
+    const match = createMatch({
+      sets: 3,
+      scoringMode: "goldenPoint",
+      superTieBreak: false,
+      firstServer: "B",
+    });
+    expect(match.serving).toBe("B");
+  });
 });
