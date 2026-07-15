@@ -106,6 +106,15 @@ function winSet(state: Readonly<MatchState>, team: Team): Readonly<MatchState> {
     return winMatch(next, team);
   }
 
+  if (state.config.superTieBreak && isFinalSet(next)) {
+    return {
+      ...next,
+      phase: "superTieBreak",
+      tieBreak: initTieBreak(10, next.serving),
+      announce: `Set ${teamLabel(state, team)}`,
+    };
+  }
+
   return {
     ...next,
     announce: `Set ${teamLabel(state, team)}`,
@@ -122,6 +131,9 @@ function checkSetWon(state: Readonly<MatchState>, team: Team): Readonly<MatchSta
 
   if (teamGames === 6 && otherGames === 6) {
     const finalSet = isFinalSet(state);
+    // With superTieBreak on, the decider starts directly as a super tie-break
+    // (see winSet). Reaching 6-6 here with the flag on is only possible when it
+    // was enabled mid-decider, after the final set already began as a full set.
     const isSuperTB = finalSet && state.config.superTieBreak;
     const target = isSuperTB ? 10 : 7;
     const phase = isSuperTB ? "superTieBreak" : "tieBreak";

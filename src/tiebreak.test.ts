@@ -183,43 +183,93 @@ describe("tie-break integration", () => {
 });
 
 describe("super tie-break", () => {
-  function toSuperTieBreak(state: MatchState): MatchState {
+  function splitSets(state: MatchState): MatchState {
     let s = state;
     for (let i = 0; i < 6; i++) s = winGame(s, "A");
     for (let i = 0; i < 6; i++) s = winGame(s, "B");
-    s = toTieBreak(s);
     return s;
   }
 
-  it("enters super tie-break in final set with superTieBreak enabled", () => {
+  it("replaces the final set when superTieBreak is enabled", () => {
     const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
-    const s = toSuperTieBreak(match);
+    const s = splitSets(match);
     expect(s.phase).toBe("superTieBreak");
     expect(s.tieBreak?.target).toBe(10);
+    expect(s.tieBreak?.A).toBe(0);
+    expect(s.tieBreak?.B).toBe(0);
+    expect(s.announce).toContain("Set");
   });
 
-  it("enters regular tie-break in final set without superTieBreak", () => {
+  it("initial super tie-break server is the team due to serve next", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
+    const s = splitSets(match);
+    expect(s.tieBreak?.initialServer).toBe(s.serving);
+  });
+
+  it("starts after a set won in a regular tie-break", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
+    let s = match;
+    for (let i = 0; i < 6; i++) s = winGame(s, "A"); // set 1: A 6-0
+    s = toTieBreak(s); // set 2 reaches 6-6
+    expect(s.phase).toBe("tieBreak");
+    s = playPoints(s, "B", 7); // B wins the tie-break → sets 1-1
+    expect(s.phase).toBe("superTieBreak");
+    expect(s.tieBreak?.target).toBe(10);
+    expect(s.tieBreak?.initialServer).toBe(s.serving);
+  });
+
+  it("plays a full final set without superTieBreak", () => {
     const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
-    const s = toSuperTieBreak(match);
+    const s = splitSets(match);
+    expect(s.phase).toBe("inProgress");
+    expect(s.tieBreak).toBeNull();
+  });
+
+  it("enters regular tie-break at 6-6 in final set without superTieBreak", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    const s = toTieBreak(splitSets(match));
     expect(s.phase).toBe("tieBreak");
     expect(s.tieBreak?.target).toBe(7);
   });
 
+  it("enters super tie-break at 6-6 when enabled mid-decider", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = splitSets(match);
+    // players enable the super tie-break after the full final set has started
+    s = { ...s, config: { ...s.config, superTieBreak: true } };
+    s = toTieBreak(s);
+    expect(s.phase).toBe("superTieBreak");
+    expect(s.tieBreak?.target).toBe(10);
+  });
+
   it("wins super tie-break 10-8", () => {
     const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
-    let s = toSuperTieBreak(match);
+    let s = splitSets(match);
     s = tbToScore(s, 8);
+    s = playPoints(s, "A", 2);
+    expect(s.phase).toBe("finished");
+    expect(s.winner).toBe("A");
+    expect(s.score.A.sets).toBe(2);
+  });
+
+  it("extended super tie-break 12-10", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
+    let s = splitSets(match);
+    s = tbToScore(s, 10);
     s = playPoints(s, "A", 2);
     expect(s.phase).toBe("finished");
     expect(s.winner).toBe("A");
   });
 
-  it("extended super tie-break 12-10", () => {
-    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
-    let s = toSuperTieBreak(match);
-    s = tbToScore(s, 10);
-    s = playPoints(s, "A", 2);
-    expect(s.phase).toBe("finished");
-    expect(s.winner).toBe("A");
+  it("replaces the fifth set in a best-of-5 match", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 5, superTieBreak: true });
+    let s = match;
+    for (const team of ["A", "B", "A"] as const) {
+      for (let i = 0; i < 6; i++) s = winGame(s, team);
+    }
+    expect(s.phase).toBe("inProgress"); // 2-1: not the decider yet
+    for (let i = 0; i < 6; i++) s = winGame(s, "B");
+    expect(s.phase).toBe("superTieBreak");
+    expect(s.tieBreak?.target).toBe(10);
   });
 });

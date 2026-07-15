@@ -9,7 +9,7 @@ Zero-dependency, pure TypeScript padel/tennis scoring engine.
 - Golden Point mode (default for padel)
 - Advantage/Deuce mode (tennis-style)
 - Tie-break (7 points, 2-point lead)
-- Super tie-break (10 points, 2-point lead, final set)
+- Super tie-break (10 points, 2-point lead, played instead of the final set)
 - Configurable sets (best of 3 or 5)
 - Undo with snapshot-based history
 - Serve rotation tracking
@@ -264,7 +264,7 @@ Creates a new match with the given configuration.
 |---|---|---|
 | `sets` | `3 \| 5` | Best of 3 or 5 sets |
 | `scoringMode` | `'goldenPoint' \| 'advantage' \| 'starPoint'` | Deuce resolution mode |
-| `superTieBreak` | `boolean` | Use 10-point super tie-break in final set |
+| `superTieBreak` | `boolean` | Play a 10-point super tie-break instead of the final set |
 | `teamNames` | `{ A: string; B: string }` | Optional display names |
 | `firstServer` | `Team` | Optional. Which team serves first (defaults to `'A'`) |
 
