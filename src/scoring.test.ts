@@ -388,8 +388,7 @@ describe("integration", () => {
     };
     const m = createMatch(config);
     let s = winSet(m, "A"); // set 1: A 6-0
-    s = winSet(s, "B"); // set 2: B 6-0
-    s = alternateGames(s, 12); // set 3: 6-6
+    s = winSet(s, "B"); // set 2: B 6-0 → super tie-break replaces the final set
     expect(s.phase).toBe("superTieBreak");
     expect(s.tieBreak?.target).toBe(10);
     s = playPoints(s, "A", 10); // win super tie-break 10-0

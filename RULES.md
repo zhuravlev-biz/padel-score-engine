@@ -69,7 +69,7 @@ When a team wins a game:
 
 A team wins a set when they have **≥ 6 games** and lead by **≥ 2 games** (e.g. 6-4, 7-5).
 
-At **6-6** a tie-break begins — or a super tie-break in the final set if configured.
+At **6-6** a tie-break begins.
 
 When a set is won:
 
@@ -77,6 +77,8 @@ When a set is won:
 2. Final game counts are recorded in `setGames` for both teams; new set entries begin.
 3. Both teams' game counts reset to 0.
 4. Check whether the match has been won.
+5. If `superTieBreak` is enabled and the set score is now level going into the final set,
+   a super tie-break starts immediately instead of the final set.
 
 ## Winning the match
 
@@ -85,7 +87,7 @@ When a set is won:
 
 ## Tie-break
 
-Entered when both teams reach 6 games in a set (unless a super tie-break applies in the final set).
+Entered when both teams reach 6 games in a set.
 
 - Scored numerically: 0, 1, 2, 3, …
 - Target: **7 points** with a **2-point lead** required.
@@ -100,11 +102,17 @@ Entered when both teams reach 6 games in a set (unless a super tie-break applies
 
 ## Super tie-break
 
-Played instead of a regular tie-break in the **final set** when `superTieBreak` is enabled.
+Played **instead of the final set** when `superTieBreak` is enabled: as soon as the set
+score becomes level going into the decider (1-1 in best of 3, 2-2 in best of 5), a super
+tie-break starts immediately — no final set is played.
 
 - Target: **10 points** with a **2-point lead** required.
-- All other rules are identical to a regular tie-break.
-- Winning the super tie-break wins the match.
+- Serve rotation is identical to a regular tie-break; the team due to serve after the
+  previous set starts the super tie-break.
+- Winning the super tie-break wins the match (recorded as winning the deciding set 1-0).
+- If `superTieBreak` is enabled mid-match, after the final set has already started as a
+  full set, that set continues and a super tie-break is played at 6-6 in place of a
+  regular tie-break.
 
 ## Serve rotation (regular games)
 
@@ -207,10 +215,14 @@ During tie-breaks, scores are announced numerically: `"{server points} — {rece
 
 | # | Scenario | Expected |
 |---|----------|----------|
-| 8.1 | Final set 6-6 with super tie-break | `phase` = `"superTieBreak"`, target 10 |
-| 8.2 | Final set 6-6 without super tie-break | `phase` = `"tieBreak"`, target 7 |
-| 8.3 | Win super tie-break 10-8 | Match won |
-| 8.4 | Extended super tie-break (12-10) | Correct resolution |
+| 8.1 | Sets level entering the decider with super tie-break | `phase` = `"superTieBreak"`, target 10 — replaces the final set |
+| 8.2 | Decider reached via a set won in a regular tie-break | Super tie-break starts, correct initial server |
+| 8.3 | Sets level without super tie-break | Full final set played (`phase` = `"inProgress"`) |
+| 8.4 | Final set 6-6 without super tie-break | `phase` = `"tieBreak"`, target 7 |
+| 8.5 | Enabled mid-decider, final set reaches 6-6 | `phase` = `"superTieBreak"`, target 10 |
+| 8.6 | Win super tie-break 10-8 | Match won |
+| 8.7 | Extended super tie-break (12-10) | Correct resolution |
+| 8.8 | Best-of-5 with sets 2-2 | Super tie-break replaces the 5th set |
 
 ### Serve rotation (`serve.test.ts`)
 
@@ -249,5 +261,5 @@ During tie-breaks, scores are announced numerically: `"{server points} — {rece
 | # | Scenario | Expected |
 |---|----------|----------|
 | 12.1 | Complete 6-0 6-0 match | 48 points, match finished |
-| 12.2 | Match with final-set super tie-break | 3rd set enters super TB, match resolved |
+| 12.2 | Match with super tie-break decider | Super TB replaces the 3rd set, match resolved |
 | 12.3 | Star point game with all three stages | Sudden-death resolves correctly |

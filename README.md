@@ -9,7 +9,7 @@ Zero-dependency, pure TypeScript padel/tennis scoring engine.
 - Golden Point mode (default for padel)
 - Advantage/Deuce mode (tennis-style)
 - Tie-break (7 points, 2-point lead)
-- Super tie-break (10 points, 2-point lead, final set)
+- Super tie-break (10 points, 2-point lead, played instead of the final set)
 - Configurable sets (best of 3 or 5)
 - Undo with snapshot-based history
 - Serve rotation tracking
@@ -264,7 +264,7 @@ Creates a new match with the given configuration.
 |---|---|---|
 | `sets` | `3 \| 5` | Best of 3 or 5 sets |
 | `scoringMode` | `'goldenPoint' \| 'advantage' \| 'starPoint'` | Deuce resolution mode |
-| `superTieBreak` | `boolean` | Use 10-point super tie-break in final set |
+| `superTieBreak` | `boolean` | Play a 10-point super tie-break instead of the final set |
 | `teamNames` | `{ A: string; B: string }` | Optional display names |
 | `firstServer` | `Team` | Optional. Which team serves first (defaults to `'A'`) |
 
@@ -275,6 +275,10 @@ Scores a point for the given team. Returns a new `MatchState` (never mutates). T
 ### `undoLastPoint(state: MatchState): MatchState`
 
 Returns the previous state from history. Throws if there is no history.
+
+### `setSuperTieBreak(state: MatchState, enabled: boolean): MatchState`
+
+Flips `config.superTieBreak` on a live match — for a mid-match "skip the final set" decision. When the decider has not effectively started, the phase converts too: a pristine final set (or a pristine final-set tie-break) becomes a 10-point super tie-break on enable, and a pristine super tie-break reverts to a full final set (or a regular tie-break at 6-6) on disable. Otherwise only the flag changes and the next set boundary applies it. No-op on finished matches; not undoable on its own (no history snapshot).
 
 ### `formatAnnouncement(state: MatchState, options?: { includeServing?: boolean }): string | null`
 

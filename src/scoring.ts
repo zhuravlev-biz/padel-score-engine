@@ -106,6 +106,15 @@ function winSet(state: Readonly<MatchState>, team: Team): Readonly<MatchState> {
     return winMatch(next, team);
   }
 
+  if (state.config.superTieBreak && isFinalSet(next)) {
+    return {
+      ...next,
+      phase: "superTieBreak",
+      tieBreak: initTieBreak(10, next.serving),
+      announce: `Set ${teamLabel(state, team)}`,
+    };
+  }
+
   return {
     ...next,
     announce: `Set ${teamLabel(state, team)}`,
@@ -122,6 +131,9 @@ function checkSetWon(state: Readonly<MatchState>, team: Team): Readonly<MatchSta
 
   if (teamGames === 6 && otherGames === 6) {
     const finalSet = isFinalSet(state);
+    // With superTieBreak on, the decider starts directly as a super tie-break
+    // (see winSet). Reaching 6-6 here with the flag on is only possible when it
+    // was enabled mid-decider, after the final set already began as a full set.
     const isSuperTB = finalSet && state.config.superTieBreak;
     const target = isSuperTB ? 10 : 7;
     const phase = isSuperTB ? "superTieBreak" : "tieBreak";
@@ -282,6 +294,79 @@ function scoreTieBreak(state: MatchState, team: Team): Readonly<MatchState> {
     announce: announceTieBreak({ ...state, tieBreak: result.tieBreak, serving: nextServer }),
   };
   return nextState;
+}
+
+function isPristineSet(state: Readonly<MatchState>): boolean {
+  return (
+    state.score.A.games === 0 &&
+    state.score.B.games === 0 &&
+    state.score.A.points === "0" &&
+    state.score.B.points === "0"
+  );
+}
+
+/**
+ * Flips `config.superTieBreak` on a live match, e.g. when players decide
+ * mid-match to skip the full final set. Beyond the config change, the current
+ * phase is converted when the decider has not effectively started:
+ *
+ * - enable on a pristine final set (0-0 games, no points) → the set becomes a
+ *   10-point super tie-break;
+ * - enable on a pristine regular tie-break in the final set → upgraded to a
+ *   super tie-break;
+ * - disable on a pristine super tie-break → back to a full final set (at 0-0
+ *   games) or a regular tie-break (at 6-6 games).
+ *
+ * In every other situation only the flag changes - winSet / checkSetWon
+ * consult it at the next set boundary. No history snapshot is pushed: the
+ * toggle is not a point and is not undoable on its own. No-op when the match
+ * is finished or the flag already has the requested value.
+ */
+export function setSuperTieBreak(
+  state: Readonly<MatchState>,
+  enabled: boolean,
+): Readonly<MatchState> {
+  if (state.phase === "finished" || state.config.superTieBreak === enabled) {
+    return state;
+  }
+
+  const next: MatchState = { ...state, config: { ...state.config, superTieBreak: enabled } };
+
+  if (enabled && state.phase === "inProgress" && isFinalSet(state) && isPristineSet(state)) {
+    return {
+      ...next,
+      phase: "superTieBreak",
+      tieBreak: initTieBreak(10, state.serving),
+      announce: null,
+    };
+  }
+
+  const tb = state.tieBreak;
+  if (tb !== null && tb.A === 0 && tb.B === 0) {
+    if (enabled && state.phase === "tieBreak" && isFinalSet(state)) {
+      return {
+        ...next,
+        phase: "superTieBreak",
+        tieBreak: initTieBreak(10, tb.initialServer),
+        announce: null,
+      };
+    }
+    if (!enabled && state.phase === "superTieBreak") {
+      if (state.score.A.games === 0 && state.score.B.games === 0) {
+        // The super tie-break replaced the final set - reopen it as a full set.
+        return { ...next, phase: "inProgress", tieBreak: null, announce: null };
+      }
+      // Entered at 6-6 (mid-decider enable) - downgrade to a regular tie-break.
+      return {
+        ...next,
+        phase: "tieBreak",
+        tieBreak: initTieBreak(7, tb.initialServer),
+        announce: null,
+      };
+    }
+  }
+
+  return next;
 }
 
 export function scorePoint(state: MatchState, team: Team): Readonly<MatchState> {
