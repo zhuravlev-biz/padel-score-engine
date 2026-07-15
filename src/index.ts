@@ -13,7 +13,7 @@ export type {
 } from "./types.js";
 
 export { createMatch } from "./match.js";
-export { scorePoint } from "./scoring.js";
+export { scorePoint, setSuperTieBreak } from "./scoring.js";
 export { undoLastPoint } from "./undo.js";
 export { formatAnnouncement } from "./announce.js";
 export { getServingSide } from "./serve-side.js";

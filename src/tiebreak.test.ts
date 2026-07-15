@@ -1,5 +1,5 @@
 import { createMatch } from "./match.js";
-import { scorePoint } from "./scoring.js";
+import { scorePoint, setSuperTieBreak } from "./scoring.js";
 import { initTieBreak, scoreTieBreakPoint } from "./tiebreak.js";
 import { TEAM } from "./types.js";
 import type { MatchState, Team } from "./types.js";
@@ -271,5 +271,132 @@ describe("super tie-break", () => {
     for (let i = 0; i < 6; i++) s = winGame(s, "B");
     expect(s.phase).toBe("superTieBreak");
     expect(s.tieBreak?.target).toBe(10);
+  });
+});
+
+describe("setSuperTieBreak", () => {
+  function splitSets(state: MatchState): MatchState {
+    let s = state;
+    for (let i = 0; i < 6; i++) s = winGame(s, "A");
+    for (let i = 0; i < 6; i++) s = winGame(s, "B");
+    return s;
+  }
+
+  it("returns the same state when the flag already matches", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    expect(setSuperTieBreak(match, false)).toBe(match);
+  });
+
+  it("is a no-op on a finished match", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = splitSets(match);
+    s = { ...s, phase: "finished", winner: "A" };
+    expect(setSuperTieBreak(s, true)).toBe(s);
+  });
+
+  it("only flips the flag before the decider", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = winGame(match, "A"); // mid set 1
+    const historyLength = s.history.length;
+    s = setSuperTieBreak(s, true);
+    expect(s.config.superTieBreak).toBe(true);
+    expect(s.phase).toBe("inProgress");
+    expect(s.tieBreak).toBeNull();
+    expect(s.history.length).toBe(historyLength); // not undoable on its own
+  });
+
+  it("enabling mid-match makes the upcoming decider a super tie-break", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = winGame(match, "A"); // flag flipped mid set 1
+    s = setSuperTieBreak(s, true);
+    for (let i = 0; i < 5; i++) s = winGame(s, "A"); // A takes set 1 6-0
+    for (let i = 0; i < 6; i++) s = winGame(s, "B"); // B takes set 2 6-0
+    expect(s.phase).toBe("superTieBreak");
+    expect(s.tieBreak?.target).toBe(10);
+  });
+
+  it("enabling on a pristine final set converts it to a super tie-break", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = splitSets(match); // sets 1-1, decider at 0-0
+    expect(s.phase).toBe("inProgress");
+    const serving = s.serving;
+    s = setSuperTieBreak(s, true);
+    expect(s.phase).toBe("superTieBreak");
+    expect(s.tieBreak).toEqual({ A: 0, B: 0, target: 10, initialServer: serving });
+    expect(s.announce).toBeNull();
+  });
+
+  it("enabling after the decider has points only flips the flag", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = splitSets(match);
+    s = scorePoint(s, TEAM.A); // 15-0 in the decider
+    s = setSuperTieBreak(s, true);
+    expect(s.phase).toBe("inProgress");
+    expect(s.tieBreak).toBeNull();
+    expect(s.config.superTieBreak).toBe(true); // 6-6 will enter a super tie-break
+  });
+
+  it("enabling on a pristine final-set tie-break upgrades it to a super tie-break", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = toTieBreak(splitSets(match)); // decider at 6-6, regular TB
+    expect(s.phase).toBe("tieBreak");
+    const initialServer = s.tieBreak?.initialServer;
+    s = setSuperTieBreak(s, true);
+    expect(s.phase).toBe("superTieBreak");
+    expect(s.tieBreak?.target).toBe(10);
+    expect(s.tieBreak?.initialServer).toBe(initialServer);
+  });
+
+  it("enabling on a non-final-set tie-break only flips the flag", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = toTieBreak(match); // set 1 at 6-6
+    s = setSuperTieBreak(s, true);
+    expect(s.phase).toBe("tieBreak");
+    expect(s.tieBreak?.target).toBe(7);
+  });
+
+  it("disabling on a pristine super tie-break reopens the full final set", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
+    let s = splitSets(match); // super TB replaced the decider
+    expect(s.phase).toBe("superTieBreak");
+    const serving = s.serving;
+    s = setSuperTieBreak(s, false);
+    expect(s.phase).toBe("inProgress");
+    expect(s.tieBreak).toBeNull();
+    expect(s.score.A.games).toBe(0);
+    expect(s.score.B.games).toBe(0);
+    expect(s.serving).toBe(serving);
+  });
+
+  it("disabling a 6-6 super tie-break downgrades it to a regular tie-break", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    let s = toTieBreak(splitSets(match)); // full decider reaches 6-6 → regular TB
+    s = setSuperTieBreak(s, true); // upgrade to a pristine super TB
+    expect(s.phase).toBe("superTieBreak");
+    s = setSuperTieBreak(s, false); // change of heart: back to a regular TB
+    expect(s.phase).toBe("tieBreak");
+    expect(s.tieBreak?.target).toBe(7);
+    expect(s.score.A.games).toBe(6);
+    expect(s.score.B.games).toBe(6);
+  });
+
+  it("disabling a super tie-break with points played only flips the flag", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: true });
+    let s = splitSets(match);
+    s = scorePoint(s, TEAM.A); // 1-0 in the super TB
+    s = setSuperTieBreak(s, false);
+    expect(s.phase).toBe("superTieBreak");
+    expect(s.tieBreak?.target).toBe(10); // in-flight tie-break keeps its target
+    expect(s.config.superTieBreak).toBe(false);
+  });
+
+  it("round-trip on a pristine decider is fully reversible", () => {
+    const match = createMatch({ scoringMode: "goldenPoint", sets: 3, superTieBreak: false });
+    const decider = splitSets(match);
+    const toggled = setSuperTieBreak(setSuperTieBreak(decider, true), false);
+    expect(toggled.phase).toBe("inProgress");
+    expect(toggled.tieBreak).toBeNull();
+    expect(toggled.score).toEqual(decider.score);
+    expect(toggled.serving).toBe(decider.serving);
   });
 });
