@@ -1,0 +1,28 @@
+name: Notify ports
+
+# Pings downstream ports when a release is tagged (changesets' `release`
+# tags the publish as vX.Y.Z). The padel-ref monorepo carries a Swift port of
+# this engine whose CI refuses version bumps until conformance vectors are
+# regenerated - this dispatch is what opens its sync issue promptly instead
+# of waiting for the weekly poll (see WATCH_SCORE_ENGINE_PORT_PLAN.md §7.3
+# in that repo).
+#
+# Requires the PORTS_DISPATCH_TOKEN secret: a fine-grained PAT scoped to
+# zhuravlev-biz/padel-ref with contents: read-write (repository_dispatch
+# needs write on contents).
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch score-engine-release to padel-ref
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PORTS_DISPATCH_TOKEN }}
+          repository: zhuravlev-biz/padel-ref
+          event-type: score-engine-release
+          client-payload: '{"version": "${{ github.ref_name }}"}'
