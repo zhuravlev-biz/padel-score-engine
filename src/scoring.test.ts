@@ -1,5 +1,5 @@
 import { createMatch } from "./match.js";
-import { scorePoint } from "./scoring.js";
+import { scorePoint, setScoringMode } from "./scoring.js";
 import { TEAM } from "./types.js";
 import type { MatchConfig, MatchState, Team } from "./types.js";
 
@@ -406,5 +406,79 @@ describe("integration", () => {
     expect(s.gameDeuceState?.failedAdvantageResets).toBe(2);
     s = scorePoint(s, TEAM.B); // sudden death (stage 3) → B wins
     expect(s.score.B.games).toBe(1);
+  });
+});
+
+describe("setScoringMode", () => {
+  it("returns the same state when the mode already matches", () => {
+    const m = createMatch(goldenPointConfig);
+    expect(setScoringMode(m, "goldenPoint")).toBe(m);
+  });
+
+  it("is a no-op on a finished match", () => {
+    let s = createMatch(goldenPointConfig);
+    s = winSet(s, "A");
+    s = winSet(s, "A");
+    expect(s.phase).toBe("finished");
+    expect(setScoringMode(s, "advantage")).toBe(s);
+  });
+
+  it("rewrites only the scoring mode, keeping score, phase, serve and history", () => {
+    const m = scorePoint(scorePoint(createMatch(goldenPointConfig), TEAM.A), TEAM.B);
+    const s = setScoringMode(m, "advantage");
+    expect(s.config).toEqual({ ...goldenPointConfig, scoringMode: "advantage" });
+    expect(s.score).toBe(m.score);
+    expect(s.phase).toBe(m.phase);
+    expect(s.serving).toBe(m.serving);
+    expect(s.history).toBe(m.history); // not undoable on its own
+  });
+
+  it("applies the new mode from the next point: golden point → advantage at deuce", () => {
+    const deuce = toDeuce(createMatch(goldenPointConfig));
+    expect(deuce.score.A.points).toBe("40");
+    expect(deuce.score.B.points).toBe("40");
+
+    // Still golden point: the next point wins the game outright.
+    expect(scorePoint(deuce, TEAM.A).score.A.games).toBe(1);
+
+    // Switched to advantage: the same point only earns AD.
+    const asAdvantage = setScoringMode(deuce, "advantage");
+    const afterPoint = scorePoint(asAdvantage, TEAM.A);
+    expect(afterPoint.score.A.points).toBe("AD");
+    expect(afterPoint.score.A.games).toBe(0);
+  });
+
+  it("seeds the star-point deuce counter when switching to star point, and drops it when leaving", () => {
+    const m = createMatch(goldenPointConfig);
+    expect(m.gameDeuceState).toBeUndefined();
+
+    const star = setScoringMode(m, "starPoint");
+    expect(star.gameDeuceState).toEqual({ failedAdvantageResets: 0 });
+    expect(star.gameDeuceState).toEqual(createMatch(starPointConfig).gameDeuceState);
+
+    const back = setScoringMode(star, "goldenPoint");
+    expect(back.gameDeuceState).toBeUndefined();
+  });
+
+  it("resets the deuce counter when the mode is re-entered mid-game", () => {
+    let s = toDeuce(createMatch(starPointConfig));
+    s = scorePoint(s, TEAM.A); // AD A
+    s = scorePoint(s, TEAM.B); // deuce, failed=1
+    expect(s.gameDeuceState?.failedAdvantageResets).toBe(1);
+    // Leaving and re-entering star point behaves like a fresh game under it.
+    s = setScoringMode(setScoringMode(s, "advantage"), "starPoint");
+    expect(s.gameDeuceState).toEqual({ failedAdvantageResets: 0 });
+  });
+
+  it("star point switched on mid-game reaches sudden death after two failed advantages", () => {
+    const deuce = toDeuce(createMatch(advantageConfig));
+    let s = setScoringMode(deuce, "starPoint");
+    s = scorePoint(s, TEAM.A); // AD A
+    s = scorePoint(s, TEAM.B); // deuce, failed=1
+    s = scorePoint(s, TEAM.B); // AD B
+    s = scorePoint(s, TEAM.A); // deuce, failed=2
+    expect(s.gameDeuceState?.failedAdvantageResets).toBe(2);
+    s = scorePoint(s, TEAM.A); // sudden death
+    expect(s.score.A.games).toBe(1);
   });
 });
