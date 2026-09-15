@@ -1,6 +1,6 @@
 import { opponent, tieBreakServer, toggleServe } from "./serve.js";
 import { initTieBreak, scoreTieBreakPoint } from "./tiebreak.js";
-import type { GamePoint, MatchState, Score, Team, TeamScore } from "./types.js";
+import type { GamePoint, MatchState, Score, ScoringMode, Team, TeamScore } from "./types.js";
 
 const NEXT_POINT: Record<string, GamePoint> = {
   "0": "15",
@@ -367,6 +367,32 @@ export function setSuperTieBreak(
   }
 
   return next;
+}
+
+/**
+ * Flips `config.scoringMode` on a live match, e.g. when players agree to
+ * switch golden point to advantage after the first set without abandoning
+ * the score. `scorePoint` reads `config.scoringMode` afresh on every call, so
+ * the config rewrite alone changes the rules from the next point on; this
+ * helper additionally resets `gameDeuceState` to the shape `createMatch`
+ * would have produced for the new mode (star point tracks failed advantages,
+ * the other two modes carry no counter). A switch mid-game therefore behaves
+ * like a fresh game under the new mode: the deuce counter starts at zero and
+ * the current points stand.
+ *
+ * Same contract as `setSuperTieBreak`: not a point, so no history snapshot is
+ * pushed and the change is not undoable on its own; no-op (same reference)
+ * when the match is finished or the mode already matches.
+ */
+export function setScoringMode(
+  state: Readonly<MatchState>,
+  mode: ScoringMode,
+): Readonly<MatchState> {
+  if (state.phase === "finished" || state.config.scoringMode === mode) {
+    return state;
+  }
+  const next: MatchState = { ...state, config: { ...state.config, scoringMode: mode } };
+  return { ...next, gameDeuceState: initialDeuceState(next) };
 }
 
 export function scorePoint(state: MatchState, team: Team): Readonly<MatchState> {

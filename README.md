@@ -280,6 +280,10 @@ Returns the previous state from history. Throws if there is no history.
 
 Flips `config.superTieBreak` on a live match — for a mid-match "skip the final set" decision. When the decider has not effectively started, the phase converts too: a pristine final set (or a pristine final-set tie-break) becomes a 10-point super tie-break on enable, and a pristine super tie-break reverts to a full final set (or a regular tie-break at 6-6) on disable. Otherwise only the flag changes and the next set boundary applies it. No-op on finished matches; not undoable on its own (no history snapshot).
 
+### `setScoringMode(state: MatchState, mode: ScoringMode): MatchState`
+
+Flips `config.scoringMode` on a live match — for a mid-match "let's play advantage from here" decision. `scorePoint` reads the mode afresh on every call, so the new rules apply from the next point; the current points stand. `gameDeuceState` is reset to what `createMatch` would produce for the new mode (star point starts its failed-advantage counter at zero, the other modes carry none), so a switch mid-game behaves like a fresh game under the new mode. No-op on finished matches; not undoable on its own (no history snapshot).
+
 ### `formatAnnouncement(state: MatchState, options?: { includeServing?: boolean }): string | null`
 
 Returns the announcement string from state. When `includeServing` is `true`, appends `"(X serving)"` using team names if configured.
