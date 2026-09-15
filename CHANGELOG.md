@@ -1,5 +1,11 @@
 # padel-score-engine
 
+## 1.2.0
+
+### Minor Changes
+
+- 7189386: New export: `setScoringMode(state, mode)` — flips `config.scoringMode` on a live match. The new rules apply from the next point and the current points stand; `gameDeuceState` is reset to the shape `createMatch` produces for the new mode (star point restarts its failed-advantage counter at zero). Same contract as `setSuperTieBreak`: no history snapshot, no-op on a finished match or when the mode already matches.
+
 ## 1.1.0
 
 ### Minor Changes
