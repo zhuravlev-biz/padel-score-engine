@@ -2,6 +2,10 @@
 
 Zero-dependency, pure TypeScript padel/tennis scoring engine.
 
+Used in [PadelRef](https://padelref.live), a padel scoreboard app for Android, iPhone and Apple Watch.
+
+Author: [Alexey Zhuravlev](https://www.zhuravlev.biz/en).
+
 ## Features
 
 - Padel scoring rules (0, 15, 30, 40, game, set, match)

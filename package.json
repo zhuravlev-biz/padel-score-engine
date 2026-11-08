@@ -52,7 +52,10 @@
     "url": "https://github.com/zhuravlev-biz/padel-score-engine/issues"
   },
   "homepage": "https://github.com/zhuravlev-biz/padel-score-engine#readme",
-  "author": "zhuravlev-biz",
+  "author": {
+    "name": "Alexey Zhuravlev",
+    "url": "https://www.zhuravlev.biz/en"
+  },
   "engines": {
     "node": ">=20"
   },
